@@ -1,0 +1,281 @@
+# Created multi-AZ VPC in us-west-2 named VPC-MO25077100
+# Revision 1
+# Date 2026-09-22
+AWSTemplateFormatVersion: '2010-09-09'
+Description: VPC spanning three Availability Zones in us-west-2. Name VPC-MO25077100. Deploy in us-west-2.
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC
+  StudentId:
+    Type: String
+    Default: MO25077100
+    Description: ECPI student ID used in resource names
+Mappings:
+  SubnetConfig:
+    us-west-2a:
+      PublicCidr: 10.0.1.0/24
+      PrivateCidr: 10.0.11.0/24
+    us-west-2b:
+      PublicCidr: 10.0.2.0/24
+      PrivateCidr: 10.0.12.0/24
+    us-west-2c:
+      PublicCidr: 10.0.3.0/24
+      PrivateCidr: 10.0.13.0/24
+Resources:
+  StudentVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: VPC-${StudentId}
+        - Key: StudentId
+          Value:
+            Ref: StudentId
+        - Key: Region
+          Value: us-west-2
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: IGW-${StudentId}
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: StudentVPC
+      InternetGatewayId:
+        Ref: InternetGateway
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: StudentVPC
+      AvailabilityZone: us-west-2a
+      CidrBlock:
+        Fn::FindInMap:
+          - SubnetConfig
+          - us-west-2a
+          - PublicCidr
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: Public-Subnet-A-${StudentId}
+        - Key: Tier
+          Value: Public
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: StudentVPC
+      AvailabilityZone: us-west-2b
+      CidrBlock:
+        Fn::FindInMap:
+          - SubnetConfig
+          - us-west-2b
+          - PublicCidr
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: Public-Subnet-B-${StudentId}
+        - Key: Tier
+          Value: Public
+  PublicSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: StudentVPC
+      AvailabilityZone: us-west-2c
+      CidrBlock:
+        Fn::FindInMap:
+          - SubnetConfig
+          - us-west-2c
+          - PublicCidr
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: Public-Subnet-C-${StudentId}
+        - Key: Tier
+          Value: Public
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: StudentVPC
+      AvailabilityZone: us-west-2a
+      CidrBlock:
+        Fn::FindInMap:
+          - SubnetConfig
+          - us-west-2a
+          - PrivateCidr
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: Private-Subnet-A-${StudentId}
+        - Key: Tier
+          Value: Private
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: StudentVPC
+      AvailabilityZone: us-west-2b
+      CidrBlock:
+        Fn::FindInMap:
+          - SubnetConfig
+          - us-west-2b
+          - PrivateCidr
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: Private-Subnet-B-${StudentId}
+        - Key: Tier
+          Value: Private
+  PrivateSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: StudentVPC
+      AvailabilityZone: us-west-2c
+      CidrBlock:
+        Fn::FindInMap:
+          - SubnetConfig
+          - us-west-2c
+          - PrivateCidr
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: Private-Subnet-C-${StudentId}
+        - Key: Tier
+          Value: Private
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: StudentVPC
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: Public-RT-${StudentId}
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+  PublicSubnetARouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnetA
+      RouteTableId:
+        Ref: PublicRouteTable
+  PublicSubnetBRouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnetB
+      RouteTableId:
+        Ref: PublicRouteTable
+  PublicSubnetCRouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnetC
+      RouteTableId:
+        Ref: PublicRouteTable
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: StudentVPC
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: Private-RT-${StudentId}
+  PrivateSubnetARouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnetA
+      RouteTableId:
+        Ref: PrivateRouteTable
+  PrivateSubnetBRouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnetB
+      RouteTableId:
+        Ref: PrivateRouteTable
+  PrivateSubnetCRouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnetC
+      RouteTableId:
+        Ref: PrivateRouteTable
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private subnets for RDS
+      SubnetIds:
+        - Ref: PrivateSubnetA
+        - Ref: PrivateSubnetB
+        - Ref: PrivateSubnetC
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: MySQL access to RDS
+      VpcId:
+        Ref: StudentVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 10.0.0.0/16
+  RdsInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      VPCSecurityGroups:
+        - Fn::GetAtt:
+            - RdsSecurityGroup
+            - GroupId
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      AllocatedStorage: '5'
+      DBInstanceClass: db.t3.micro
+      DBInstanceIdentifier: playground-db
+      Engine: MySQL
+      MasterUsername: Admin
+      MasterUserPassword: CloudAcademy123!
+      PubliclyAccessible: false
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value:
+      Ref: StudentVPC
+  VpcName:
+    Description: VPC Name tag
+    Value:
+      Fn::Sub: VPC-${StudentId}
+  AvailabilityZones:
+    Description: Availability Zones used
+    Value: us-west-2a, us-west-2b, us-west-2c
